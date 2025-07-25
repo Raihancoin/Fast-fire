@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fast Fire - Home</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      margin: 0; font-family: sans-serif; background: #121212; color: #fff;
+    }
+    header {
+      background: #1f1f1f; padding: 15px; text-align: center;
+    }
+    .user-info {
+      text-align: center; padding: 20px;
+    }
+    .user-info img {
+      width: 80px; border-radius: 50%;
+    }
+    .balance-box {
+      background: #222; padding: 15px; margin: 20px; border-radius: 10px;
+      text-align: center;
+    }
+    .balance-box h2 {
+      margin: 0; font-size: 28px; color: #00ffc8;
+    }
+    .tabs {
+      display: flex; justify-content: space-around;
+      margin: 20px 0;
+    }
+    .tabs button {
+      flex: 1;
+      padding: 10px; border: none; background: #2c2c2c; color: #fff;
+      cursor: pointer;
+    }
+    .tabs button.active {
+      background: #00ffc8; color: #000; font-weight: bold;
+    }
+    .game-box {
+      text-align: center; padding: 20px;
+    }
+    .join-btn {
+      background: #00ffc8; padding: 12px 25px; border: none;
+      color: #000; font-weight: bold; border-radius: 8px;
+      cursor: pointer;
+    }
+    .referral-box {
+      margin: 20px; padding: 10px;
+      background: #1e1e1e; border-left: 5px solid #00ffc8;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🔥 Fast Fire Game</h1>
+  </header>
+
+  <div class="user-info">
+    <img id="user-pic" src="" />
+    <h3 id="user-name">Loading...</h3>
+  </div>
+
+  <div class="balance-box">
+    <p>💎 Your Diamond Balance</p>
+    <h2 id="diamond-balance">0</h2>
+  </div>
+
+  <div class="tabs">
+    <button class="active" onclick="selectTournament('daily')">Daily</button>
+    <button onclick="selectTournament('weekly')">Weekly</button>
+    <button onclick="selectTournament('monthly')">Monthly</button>
+  </div>
+
+  <div class="game-box">
+    <h3 id="tournament-title">Join Today's Tournament</h3>
+    <button class="join-btn" onclick="joinTournament()">Join Now</button>
+  </div>
+
+  <div class="referral-box">
+    <p>🎁 Your Referral Link:</p>
+    <p id="ref-link">Loading...</p>
+  </div>
+
+  <script>
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyB2tewK2rgY5Dt3b-WU1lzntN54Qycj1Pc",
+      authDomain: "fast-fire-d9ffd.firebaseapp.com",
+      projectId: "fast-fire-d9ffd",
+      storageBucket: "fast-fire-d9ffd.firebasestorage.app",
+      messagingSenderId: "27211058388",
+      appId: "1:27211058388:web:f72cd1e54ff0a354643f41"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+    let currentTournament = 'daily';
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+        document.getElementById('user-pic').src = user.photoURL;
+        document.getElementById('user-name').innerText = user.displayName;
+        document.getElementById('ref-link').innerText =
+          `${window.location.origin}/index.html?ref=${user.uid}`;
+
+        // Load Diamond Balance
+        db.collection("users").doc(user.uid).get().then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            document.getElementById('diamond-balance').innerText = data.diamond || 0;
+          } else {
+            db.collection("users").doc(user.uid).set({ diamond: 0 });
+          }
+        });
+      } else {
+        window.location.href = "index.html";
+      }
+    });
+
+    function selectTournament(type) {
+      currentTournament = type;
+      document.querySelectorAll('.tabs button').forEach(btn => btn.classList.remove('active'));
+      const btn = Array.from(document.querySelectorAll('.tabs button')).find(b => b.textContent.toLowerCase() === type);
+      if (btn) btn.classList.add('active');
+      document.getElementById('tournament-title').innerText = `Join ${type.charAt(0).toUpperCase() + type.slice(1)} Tournament`;
+    }
+
+    function joinTournament() {
+      if (!currentUser) return alert("Please login");
+
+      const userRef = db.collection("users").doc(currentUser.uid);
+      userRef.get().then(doc => {
+        let diamond = doc.data().diamond || 0;
+        if (diamond < 10) return alert("Not enough diamonds to join");
+
+        // Deduct diamonds & register
+        userRef.update({
+          diamond: firebase.firestore.FieldValue.increment(-10)
+        });
+        db.collection("tournaments").add({
+          user: currentUser.uid,
+          name: currentUser.displayName,
+          type: currentTournament,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert("Successfully joined the tournament!");
+        document.getElementById('diamond-balance').innerText = diamond - 10;
+      });
+    }
+  </script>
+</body>
+      </html>
+      
